@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+    <meta charset="UTF-8">
+    <title>Socket IO - Chat</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div id="alert-navbar" class="alert alert-warning notification" role="alert">
+        <h5 id="current-user" class="center"></h5>
+        <video autoplay muted class="local-video" id="local-video" style="width: 150px;"></video>
+        <h6 id="alert-status">Loading...</h6>
+    </div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-2">
+                <div class="row">
+                    <ul id="rooms" class="nav nav-pills nav-stacked">
+                        <li role="presentation" class="active" data-room="Default">
+                            <a href="#">Default</a>
+                        </li>
+                        <li role="presentation" data-room="Sport">
+                            <a href="#">Sport</a>
+                        </li>
+                        <li role="presentation" data-room="Series">
+                            <a href="#">Series</a>
+                        </li>
+                        <li role="presentation" data-room="Manga">
+                            <a href="#">Manga</a>
+                        </li>
+                        <li role="presentation" data-room="Voyage">
+                            <a href="#">Voyage</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-lg-6 col-lg-offset-1">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <div class="row">
+                            <div class="video-chat-container">
+                                <h6 class="talk-info" id="talking-with-info">
+                                    Select active user on the left menu.
+                                </h6>
+                                <div class="video-container">
+                                    <video autoplay class="remote-video" id="remote-video"></video>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row" id="messages">
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-2 col-lg-offset-1">
+                <div class="row">
+                    <div class="col-lg-12">
+                        <ul class="list-group" id="users">
+                            <a href="#" class="list-group-item active">
+                                Utilisateur(s)
+                            </a>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row sendbox">
+            <form id="message-form" class="form-inline" action="">
+                <div class="input-group " style="width: 100%">
+                    <input type="text" class="form-control" id="messageInput" placeholder="Votre message ici ...">
+                    <span class="input-group-btn">
+                        <button class="btn btn-default" id="btn_msg" type="button">Envoyer !</button>
+                    </span>
+                </div><!-- /input-group -->
+            </form>
+        </div>
+    </div>
+
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+    <script>
+
+        function generateToken() {
+            var chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            var token = '';
+            for(var i = 0; i < 10; i++) {
+                token += chars[Math.floor(Math.random() * chars.length)];
+            }
+            return token;
+        }
+
+        (function ($) {
+            const selectorCache = {
+                status: $('#alert-status'),
+                statusNavbar: $('#alert-navbar'),
+                users: $('#users'),
+                currentUser: $('#current-user'),
+                messages: $('#messages'),
+                messageForm: $('#message-form'),
+                btnMsg: $('#btn_msg'),
+                messageInput: $('#messageInput'),
+                rooms: $('#rooms'),
+                LinkListRooms: $('#rooms li '),
+            };
+
+            let socket = io(), username = null, room = null, token = null;
+
+            //
+            //
+            //
+            //
+            //
+            //
+
+            navigator.getUserMedia = ( navigator.getUserMedia ||
+                navigator.webkitGetUserMedia ||
+                navigator.mozGetUserMedia ||
+                navigator.msGetUserMedia);
+
+            const { RTCPeerConnection, RTCSessionDescription } = window;
+            const peerConnection = new RTCPeerConnection();
+
+            navigator.getUserMedia(
+                { video: true, audio: true },
+                stream => {
+                    const localVideo = document.getElementById("local-video");
+                    if (localVideo) {
+                        localVideo.srcObject = stream;
+                    }
+                    stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+                },
+                error => {
+                    console.warn(error.message);
+                }
+            );
+
+            peerConnection.ontrack = function({ streams: [stream] }) {
+                const remoteVideo = document.getElementById("remote-video");
+                if (remoteVideo) {
+                    remoteVideo.srcObject = stream;
+                }
+            };
+
+            async function callPartner(socketId) {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(new RTCSessionDescription(offer));
+
+                socket.emit("call-user", {
+                    offer: offer,
+                    to: socketId
+                });
+
+            }
+
+            function createUserItemContainer(socketId) {
+                const userContainerEl = document.createElement("div");
+
+                const usernameEl = document.createElement("p");
+
+                userContainerEl.setAttribute("class", "active-user");
+                userContainerEl.setAttribute("id", socketId);
+                usernameEl.setAttribute("class", "username");
+                usernameEl.innerHTML = `Socket: ${socketId}`;
+
+                userContainerEl.appendChild(usernameEl);
+
+                userContainerEl.addEventListener("click", () => {
+                    userContainerEl.setAttribute("class", "active-user active-user--selected");
+                    const talkingWithInfo = document.getElementById("talking-with-info");
+                    talkingWithInfo.innerHTML = `Talking with: "Socket: ${socketId}"`;
+                    callPartner(socketId);
+                });
+                return userContainerEl;
+            }
+
+            socket.on("call-made", async data => {
+                await peerConnection.setRemoteDescription(
+                    new RTCSessionDescription(data.offer)
+                );
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(new RTCSessionDescription(answer));
+
+                socket.emit("make-answer", {
+                    answer: answer,
+                    to: data.socket
+                });
+            });
+
+            socket.on("answer-made", async data => {
+                await peerConnection.setRemoteDescription(
+                    new RTCSessionDescription(data.answer)
+                );
+                await callPartner(data.socket);
+            });
+
+            //
+            //
+            //
+            //
+            //
+            //
+
+            if (typeof(Storage) !== undefined) {
+                username = localStorage.getItem('username');
+                room = localStorage.getItem('room');
+                token = localStorage.getItem('token');
+            }
+
+            socket.on('connect', (data) => {
+                updateStatus('Connecté', 'success');
+
+                while (username === null || username === '') {
+                    username = prompt('Votre pseudo ?');
+
+                    if (typeof(Storage) !== undefined) {
+                        localStorage.setItem('username', username);
+                        if(room === null || room === ''){
+                            localStorage.setItem('room', 'Default');
+                            room = "Default";
+                        }
+                        if(token === null || token === ''){
+                            token = generateToken();
+                            localStorage.setItem('token', token);
+                        }
+                    }
+                }
+                selectorCache.currentUser.html(username);
+                selectorCache.rooms.find(`li[class="active"]`).removeClass("active");
+                selectorCache.rooms.find(`li[data-room="${room}"]`).addClass('active');
+
+                socket.emit('chat.join', JSON.stringify({ username: username, room: room , token: token  }));
+            });
+
+            function updateStatus(text, status) {
+                selectorCache.statusNavbar.removeClass('alert-danger alert-warning alert-success').addClass('alert-' + status);
+                selectorCache.status.html(text);
+            }
+
+            selectorCache.LinkListRooms.on('click', (e) => {
+                let target = e.target,
+                    targetText = target.innerText;
+
+                if(targetText !== null){
+                    socket.emit('chat.leaveChannel');
+                    localStorage.setItem('room', targetText);
+                }
+                return false;
+            });
+
+            socket.on('chat.channelChanged', () => {
+                let username = localStorage.getItem('username'), room = localStorage.getItem('room'), token = localStorage.getItem('token');
+                let json = JSON.stringify({ username: username, room: room , token: token  });
+                selectorCache.LinkListRooms.removeClass('active');
+                selectorCache.rooms.find(`li[data-room="${room}"]`).addClass('active');
+
+                socket.emit('chat.join', json);
+
+                return false;
+            });
+
+            selectorCache.messageInput.on('keyup', (e) => {
+                e.preventDefault();
+                socket.emit('chat.typing', token);
+                return false;
+            });
+
+            selectorCache.messageForm.on('submit', () => {
+                if(selectorCache.messageInput.val() != ""){
+                    socket.emit('chat.add_msg', selectorCache.messageInput.val());
+                    selectorCache.messageInput.val('');
+                }
+                return false;
+            });
+
+            selectorCache.btnMsg.on('click', () => {
+                if(selectorCache.messageInput.val() != ""){
+                    socket.emit('chat.add_msg', selectorCache.messageInput.val());
+                    selectorCache.messageInput.val('');
+                }
+                return false;
+            });
+
+            socket.on('disconnect', () => {
+                updateStatus('Déconnecté', 'danger');
+            });
+
+            socket.on('chat.join', (json) => {
+                const data = JSON.parse(json);
+
+                selectorCache.users.append(
+                    $(`
+                        <li class="list-group-item" data-user-token="${data.token}">
+                            <span class="badge inactif" >...</span>
+                            ${data.username}
+                        </li>`
+                    ));
+
+                const userContainerEl = createUserItemContainer(data.token);
+                selectorCache.users.append(userContainerEl);
+
+            });
+
+            socket.on('chat.add_msg', (json) => {
+                const data = JSON.parse(json);
+
+                if(data.token != localStorage.getItem('token')){
+                    selectorCache.messages.append(
+                        $(`
+                            <div class="col-lg-12">
+                                <div class="row">
+                                    <div class="col-lg-6">
+                                        <div class="panel panel-info">
+                                            <div class="panel-heading">
+                                                <h3 class="panel-title">${data.username}</h3>
+                                            </div>
+                                            <div class="panel-body">
+                                                ${data.content}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            `
+                        ));
+                }else{
+                    selectorCache.messages.append(
+                        $(`
+                            <div class="col-lg-12">
+                                <div class="row">
+                                    <div class="col-lg-6 col-lg-offset-6">
+                                        <div class="panel panel-primary">
+                                            <div class="panel-heading">
+                                                <h3 class="panel-title">${data.username}</h3>
+                                            </div>
+                                            <div class="panel-body">
+                                                ${data.content}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>`
+                        ));
+                }
+            });
+
+            socket.on('chat.out', (token) => {
+                selectorCache.users.find(`li[data-user-token="${token}"]`).remove();
+            });
+
+            socket.on('chat.NoUser', () => {
+                selectorCache.users.html
+                (`
+                     <a href="#" class="list-group-item active">
+                        Utilisateur(s)
+                     </a>
+                `);
+
+            });
+
+            socket.on('chat.NoMsg', () => {
+                selectorCache.messages.html(``);
+            });
+
+            socket.on('chat.typing', (token) => {
+                selectorCache.users.find(`li[data-user-token="${token}"] span.badge`).removeClass('inactif').addClass('actif');
+                window.setTimeout(function() {
+                    selectorCache.users.find(`li[data-user-token="${token}"] span.badge`).removeClass('actif').addClass('inactif');
+                }, 3000);
+            });
+
+        })(jQuery);
+    </script>
+</body>
+</html>

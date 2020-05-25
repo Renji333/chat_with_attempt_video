@@ -1,0 +1,66 @@
+.panel-body
+{
+  word-wrap: break-word;
+}
+
+@mixin actifStatus($status)
+{
+  display: $status;
+}
+.actif
+{
+  @include actifStatus(inherit);
+}
+.inactif
+{
+  @include actifStatus(none);
+}
+
+.notification
+{
+  text-align: center;
+}
+
+.container-fluid
+{
+  margin-bottom: 70px;
+}
+
+html, body
+{
+  height: 100%;
+}
+
+input[type="text"]
+{
+  box-sizing: border-box;
+}
+
+#message-form
+{
+  position: fixed;
+  width: 95%;
+  bottom: 2%;
+  left: 2.5%;
+  right: 2.5%;
+
+  .form-group
+  {
+    width: 100%;
+  }
+
+  button
+  {
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 100;
+    min-width: 15%;
+  }
+}
+
+#messages
+{
+  max-height: 550px;
+  overflow: scroll;
+}

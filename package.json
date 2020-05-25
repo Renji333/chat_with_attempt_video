@@ -1,0 +1,23 @@
+{
+  "name": "chat-TD-NODE",
+  "version": "1.0.0",
+  "main": "app.js",
+  "author": "francis christanval",
+  "license": "MIT",
+  "scripts": {
+    "start": "nodemon",
+    "scss": "sass --watch scss/style.scss:css/style.css",
+    "redis": "redis-commander"
+  },
+  "dependencies": {
+    "colors": "^1.1.2",
+    "express": "^4.16.2",
+    "jquery": "^3.3.1",
+    "redis": "^2.8.0",
+    "request-ip": "^2.0.2",
+    "socket.io": "^2.0.4"
+  },
+  "devDependencies": {
+    "nodemon": "^1.17.1"
+  }
+}

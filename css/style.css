@@ -1,0 +1,41 @@
+.panel-body {
+  word-wrap: break-word; }
+
+.actif {
+  display: inherit; }
+
+.inactif {
+  display: none; }
+
+.notification {
+  text-align: center; }
+
+.container-fluid {
+  margin-bottom: 70px; }
+
+html, body {
+  height: 100%; }
+
+input[type="text"] {
+  box-sizing: border-box; }
+
+#message-form {
+  position: fixed;
+  width: 95%;
+  bottom: 2%;
+  left: 2.5%;
+  right: 2.5%; }
+  #message-form .form-group {
+    width: 100%; }
+  #message-form button {
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 100;
+    min-width: 15%; }
+
+#messages {
+  max-height: 550px;
+  overflow: scroll; }
+
+/*# sourceMappingURL=style.css.map */
