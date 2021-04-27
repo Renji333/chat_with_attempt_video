@@ -13,7 +13,7 @@
     "colors": "^1.1.2",
     "express": "^4.16.2",
     "jquery": "^3.3.1",
-    "redis": "^2.8.0",
+    "redis": "^3.1.1",
     "request-ip": "^2.0.2",
     "socket.io": "^2.0.4"
   },
